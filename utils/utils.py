@@ -5,17 +5,16 @@ import torch as th
 import pandas as pd
 import math
 
-random.seed(24)
-
 
 def load_to_dgl_graph(dataset):
-    edges = pd.read_csv(os.path.join('../data/', dataset, '{}.txt'.format(dataset)), sep=' ', names=['start_idx', 'end_idx', 'time'])
-    
+    edges = pd.read_csv(os.path.join('../data/', dataset, '{}.txt'.format(dataset)), sep=' ',
+                        names=['start_idx', 'end_idx', 'time'])
+
     src_nid = edges.start_idx.to_numpy()
     dst_nid = edges.end_idx.to_numpy()
 
     graph = dgl.graph((src_nid, dst_nid))
-    graph.edata['time'] = th.Tensor(edges.time.tolist()) 
+    graph.edata['time'] = th.Tensor(edges.time.tolist())
 
     node_feat = position_encoding(max_len=graph.num_nodes(), emb_size=128)
 
@@ -23,14 +22,15 @@ def load_to_dgl_graph(dataset):
 
 
 def dataloader(dataset):
-    edges = pd.read_csv(os.path.join('../data/', dataset, '{}.txt'.format(dataset)), sep=' ', names=['start_idx', 'end_idx', 'time'])
+    edges = pd.read_csv(os.path.join('../data/', dataset, '{}.txt'.format(dataset)), sep=' ',
+                        names=['start_idx', 'end_idx', 'time'])
     label = pd.read_csv(os.path.join('../data/', dataset, 'node2label.txt'), sep=' ', names=['nodeidx', 'label'])
 
     src_nid = edges.start_idx.to_numpy()
     dst_nid = edges.end_idx.to_numpy()
 
     graph = dgl.graph((src_nid, dst_nid))
-    
+
     labels = th.full((graph.number_of_nodes(),), -1).cuda()
 
     nodeidx, lab = label.nodeidx.tolist(), label.label.tolist()
@@ -42,10 +42,10 @@ def dataloader(dataset):
     val_mask = th.full((graph.number_of_nodes(),), False)
     test_mask = th.full((graph.number_of_nodes(),), False)
 
-    random.seed(24)
+    random.seed(2024)
     train_mask_index, val_mask_index, test_mask_index = th.LongTensor([]), th.LongTensor([]), th.LongTensor([])
     for i in range(min(labels), max(labels) + 1):
-        index = [j for j in label[label.label==i].nodeidx.tolist()]
+        index = [j for j in label[label.label == i].nodeidx.tolist()]
         random.shuffle(index)
         train_mask_index = th.cat((train_mask_index, th.LongTensor(index[:int(len(index) / 10)])), 0)
         val_mask_index = th.cat((val_mask_index, th.LongTensor(index[int(len(index) / 10):int(len(index) / 5)])), 0)
@@ -61,7 +61,8 @@ def dataloader(dataset):
 
     return labels, train_idx, val_idx, test_idx, n_classes
 
-def position_encoding(max_len, emb_size):
+
+def position_encoding(max_len, emb_size):  # 位置编码
     pe = th.zeros(max_len, emb_size)
     position = th.arange(0, max_len).unsqueeze(1)
 
@@ -71,24 +72,22 @@ def position_encoding(max_len, emb_size):
     pe[:, 1::2] = th.cos(position * div_term)
     return pe
 
-def sampling_layer(snapshots, views, span, strategy):
-    T = []
-    if strategy == 'random':
-        T = [random.uniform(0, span * (snapshots - 1) / snapshots) for _ in range(views)]
-    elif strategy == 'low_overlap':
-        if (0.75 * views + 0.25) > snapshots:
-            return "The number of sampled views exceeds the maximum value of the current policy."
-        start = random.uniform(0, span - (0.75 * views + 0.25) * span /  snapshots)
-        T = [start + (0.75 * i * span) / snapshots for i in range(views)]
-    elif strategy == 'high_overlap':
-        if (0.25 * views + 0.75) > snapshots:
-            return "The number of sampled views exceeds the maximum value of the current policy."
-        start = random.uniform(0, span - (0.25 * views + 0.75) * span /  snapshots)
-        T = [start + (0.25 * i * span) / snapshots for i in range(views)]
-    elif strategy == 'sequential':
-        T = [span * i / snapshots for i in range(snapshots)]
-        if views > snapshots:
-            return "The number of sampled views exceeds the maximum value of the current policy."
-        T = random.sample(T, views)
 
-    return T
+def sampling_layer(snapshots, views, strategy='random'):  # 采样层
+    samples = []  # 采样结果
+    random.seed(2024)
+
+    if strategy == 'random':  # 随机采样
+        samples = random.sample(range(0, snapshots), views)  # 随机采取 views 个样本
+    elif strategy == 'sequential':  # 顺序采样
+        samples = random.sample(range(0, snapshots - views + 1), 1)  # 随机采取 1 个样本
+        start = samples[0]
+        for i in range(1, views):
+            samples.append(start + i)  # 按顺序取剩下的样本
+
+    return samples
+
+
+def load_subtensor(node_feats, input_nodes, device):  # 加载子张量至指定的设备
+    batch_inputs = node_feats[input_nodes].to(device)
+    return batch_inputs

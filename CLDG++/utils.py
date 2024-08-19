@@ -11,7 +11,7 @@ random.seed(24)
 
 
 def load_to_dgl_graph(dataset, s):  # 处理图数据并进行异常注入实验
-    edges = pd.read_csv(os.path.join('../Data/', dataset, '{}.txt'.format(dataset)), sep=' ',
+    edges = pd.read_csv(os.path.join('../data/', dataset, '{}.txt'.format(dataset)), sep=' ',
                         names=['start_idx', 'end_idx', 'time'])  # 边
 
     src_nid = edges.start_idx.to_numpy()  # 源节点
@@ -97,9 +97,9 @@ def inject_anomaly(g, feat, m, n, k, s):  # 异常注入
 
 
 def dataloader(dataset):  # 加载数据
-    edges = pd.read_csv(os.path.join('../Data/', dataset, '{}.txt'.format(dataset)), sep=' ',
+    edges = pd.read_csv(os.path.join('../data/', dataset, '{}.txt'.format(dataset)), sep=' ',
                         names=['start_idx', 'end_idx', 'time'])  # 边
-    label = pd.read_csv(os.path.join('../Data/', dataset, 'node2label.txt'), sep=' ', names=['nodeidx', 'label'])  # 标签
+    label = pd.read_csv(os.path.join('../data/', dataset, 'node2label.txt'), sep=' ', names=['nodeidx', 'label'])  # 标签
 
     src_nid = edges.start_idx.to_numpy()  # 源节点
     dst_nid = edges.end_idx.to_numpy()  # 目标节点

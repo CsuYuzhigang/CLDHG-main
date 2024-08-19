@@ -60,6 +60,9 @@ def data_processing_for_twitter(df: pd.DataFrame, snapshots=7):
         }
         # 创建异构图
         hetero_graph = dgl.heterograph(data_dict)
+        # 异构图预处理
+        hetero_graph = dgl.to_simple(hetero_graph)  # 简化
+        hetero_graph = dgl.to_bidirected(hetero_graph, copy_ndata=True)  # 双向化
         # 添加至列表
         hetero_graph_list.append(hetero_graph)
     print(hetero_graph_list)
@@ -114,6 +117,9 @@ def data_processing_for_math_overflow(df: pd.DataFrame, snapshots=11):
         }
         # 创建异构图
         hetero_graph = dgl.heterograph(data_dict)
+        # 异构图预处理
+        hetero_graph = dgl.to_simple(hetero_graph)  # 简化
+        hetero_graph = dgl.to_bidirected(hetero_graph, copy_ndata=True)  # 双向化
         # 添加至列表
         hetero_graph_list.append(hetero_graph)
     print(hetero_graph_list)
