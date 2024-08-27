@@ -128,6 +128,65 @@ def data_processing_for_math_overflow(df: pd.DataFrame, snapshots=11):
     return hetero_graph_list
 
 
+# EComm 数据处理
+def data_processing_for_ecomm(df: pd.DataFrame, snapshots=11):
+    df.columns = ['user', 'item', 'timestamp', 'edge_type']
+    df_list = []
+    hetero_graph_list = []
+
+    # 处理时间, 对时间戳分段
+    min_time = df['timestamp'].min()
+    max_time = df['timestamp'].max()
+    time_slot = (max_time - min_time + snapshots - 1) // snapshots  # 向上取整
+    df['timestamp'] = df['timestamp'].apply(lambda x: (x - min_time) // time_slot)
+
+    # 处理节点序号, 使之连续
+    user_map = {}  # 用户序号映射 map
+    item_map = {}  # 商品序号映射 map
+    user_num = 0  # 用户初始序号
+    item_num = 0  # 商品初始序号
+    for index, row in df.iterrows():
+        if row['user'] not in user_map:
+            user_map[row['user']] = user_num
+            user_num += 1
+        if row['item'] not in item_map:
+            item_map[row['item']] = item_num
+            item_num += 1
+    df['user'] = df['user'].map(user_map)
+    df['item'] = df['item'].map(item_map)
+
+    # 定义节点和边类型
+    node_types = ['user', 'item']
+    edge_types = [('user', 'click', 'item'), ('user', 'buy', 'item'), ('user', 'add_to_cart', 'item'), ('user', 'add_to_favorite', 'item')]
+    edge_map = {'click': 'click', 'buy': 'buy', 'a2c': 'add_to_cart', 'a2f': 'add_to_favorite'}
+    # 构造异质动态图
+    for index in range(snapshots):
+        # 对每个时间段构造异质图
+        df_curr = df[df['timestamp'] == index]  # 取当前时间段的数据
+        df_list.append(df_curr)
+        df_click = df_curr[df_curr['edge_type'] == 'click']  # click 类型的边
+        df_buy = df_curr[df_curr['edge_type'] == 'buy']  # buy 类型的边
+        df_a2c = df_curr[df_curr['edge_type'] == 'a2c']  # add_to_cart 类型的边
+        df_a2f = df_curr[df_curr['edge_type'] == 'a2f']  # add_to_favorite 类型的边
+        # 定义每种类型的边
+        data_dict = {
+            ('user', 'click', 'item'): (torch.tensor(df_click['user'].to_numpy()), torch.tensor(df_click['item'].to_numpy())),
+            ('user', 'buy', 'item'): (torch.tensor(df_buy['user'].to_numpy()), torch.tensor(df_buy['item'].to_numpy())),
+            ('user', 'add_to_cart', 'item'): (torch.tensor(df_a2c['user'].to_numpy()), torch.tensor(df_a2c['item'].to_numpy())),
+            ('user', 'add_to_favorite', 'item'): (torch.tensor(df_a2f['user'].to_numpy()), torch.tensor(df_a2f['item'].to_numpy())),
+        }
+        # 创建异构图
+        hetero_graph = dgl.heterograph(data_dict)
+        # 异构图预处理
+        hetero_graph = dgl.to_simple(hetero_graph)  # 简化
+        # 添加至列表
+        hetero_graph_list.append(hetero_graph)
+    print(hetero_graph_list)
+    dgl.save_graphs(os.path.join('./data', 'EComm', 'EComm.bin'), hetero_graph_list)  # 保存
+    print('Hetero graph list has been saved')
+    return hetero_graph_list
+
+
 # 获取 Twitter 数据
 def get_twitter(snapshots=7):
     df = load_data('Twitter')
@@ -139,4 +198,11 @@ def get_twitter(snapshots=7):
 def get_math_overflow(snapshots=11):
     df = load_data('MathOverflow')
     hetero_graph_list = data_processing_for_math_overflow(df, snapshots)
+    return hetero_graph_list
+
+
+# 获取 EComm 数据
+def get_ecomm(snapshots=11):
+    df = load_data('EComm')
+    hetero_graph_list = data_processing_for_ecomm(df, snapshots)
     return hetero_graph_list

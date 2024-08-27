@@ -11,7 +11,7 @@ import torch.nn as thnn
 import torch.nn.functional as F
 import torch.optim as optim
 from dgl.dataloading import MultiLayerNeighborSampler, MultiLayerFullNeighborSampler
-from dgl.dataloading import NodeDataLoader
+from dgl.dataloading import DataLoader
 from scipy.linalg import fractional_matrix_power, inv, expm
 from sklearn.metrics import roc_auc_score
 
@@ -110,20 +110,21 @@ def train(dataset, hidden_dim, n_layers, n_classes, fanouts, snapshots, views, s
             nids.append(th.unique(temporal_subgraph.edges()[0]))  # 添加节点 id
             temporal_subgraphs.append(temporal_subgraph)  # 添加子图
 
-        train_nid_per_gpu = list(reduce(lambda x, y: x & y, [set(nids[sg_id].tolist()) for sg_id in range(views)]))  # 每个 GPU 上训练的节点 id
+        train_nid_per_gpu = list(
+            reduce(lambda x, y: x & y, [set(nids[sg_id].tolist()) for sg_id in range(views)]))  # 每个 GPU 上训练的节点 id
         train_nid_per_gpu = random.sample(train_nid_per_gpu, batch_size)  # 随机采样
         random.shuffle(train_nid_per_gpu)  # 随机打乱
         train_nid_per_gpu = th.tensor(train_nid_per_gpu)  # 存储为张量
 
         for sg_id in range(views):  # 为每个视图创建数据加载器
-            train_dataloader = NodeDataLoader(temporal_subgraphs[sg_id],
-                                              train_nid_per_gpu,
-                                              sampler,
-                                              batch_size=train_nid_per_gpu.shape[0],
-                                              shuffle=False,
-                                              drop_last=False,
-                                              num_workers=num_workers,
-                                              )
+            train_dataloader = DataLoader(temporal_subgraphs[sg_id],
+                                          train_nid_per_gpu,
+                                          sampler,
+                                          batch_size=train_nid_per_gpu.shape[0],
+                                          shuffle=False,
+                                          drop_last=False,
+                                          num_workers=num_workers,
+                                          )
             train_dataloader_list.append(train_dataloader)
 
         seeds_emb = th.tensor([]).to(device_id)  # 存储种子节点嵌入
@@ -244,14 +245,14 @@ def train(dataset, hidden_dim, n_layers, n_classes, fanouts, snapshots, views, s
         temporal_subgraphs.append(temporal_subgraph)
 
     for sg_id in range(views):  # 为每个视图创建测试数据加载器
-        test_dataloader = NodeDataLoader(temporal_subgraphs[sg_id],
-                                         temporal_subgraphs[sg_id].nodes(),
-                                         sampler,
-                                         batch_size=dataloader_size,
-                                         shuffle=False,
-                                         drop_last=False,
-                                         num_workers=num_workers,
-                                         )
+        test_dataloader = DataLoader(temporal_subgraphs[sg_id],
+                                     temporal_subgraphs[sg_id].nodes(),
+                                     sampler,
+                                     batch_size=dataloader_size,
+                                     shuffle=False,
+                                     drop_last=False,
+                                     num_workers=num_workers,
+                                     )
         test_dataloader_list.append(test_dataloader)
 
     # 模型设置为评估模式, 遍历测试数据加载器进行前向传播, 存储快照嵌入

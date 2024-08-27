@@ -1,5 +1,7 @@
 import os
 
+import pandas as pd
+
 
 # Math-Overflow 预处理
 def preprocessing_for_math_overflow():
@@ -39,3 +41,13 @@ def preprocessing_for_math_overflow():
         out_file.write(content2)
         out_file.write('\n')  # 添加换行符以分隔文件内容
         out_file.write(content3)
+
+
+# EComm 预处理
+def preprocessing_for_ecomm():
+    file_path = os.path.join('./data', 'EComm', 'EComm.txt')
+    df = pd.read_csv(file_path, delimiter='\t', header=None)  # 读取数据
+    df[2], df[3] = df[3], df[2]  # 交换两列
+    edge_type_map = {1: 'click', 2: 'buy', 3: 'a2c', 4: 'a2f'}  # 边的种类
+    df[3] = df[3].map(edge_type_map)  # 边的种类映射
+    df.to_csv(file_path, sep=' ', index=False, header=False)  # 保存
