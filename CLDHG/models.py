@@ -16,8 +16,8 @@ class LogReg(thnn.Module):
 class MLPLinear(thnn.Module):  # 线性层
     def __init__(self, in_dim, out_dim):
         super(MLPLinear, self).__init__()
-        self.linear1 = thnn.Linear(in_dim, out_dim)  # 线性层 1
-        self.linear2 = thnn.Linear(out_dim, out_dim)  # 线性层 2
+        self.linear1 = HeteroLinear(in_dim, out_dim)  # 线性层 1
+        self.linear2 = HeteroLinear(out_dim, out_dim)  # 线性层 2
         self.act = thnn.LeakyReLU(0.2)  # LeakyReLU 激活函数
         self.reset_parameters()  # 初始化参数
 
@@ -89,36 +89,45 @@ class GraphConvModel(thnn.Module):
 
 class HeteroGraphConvModel(thnn.Module):
     def __init__(self,
-                 edges,
+                 edge_types,
                  in_feats,
                  hidden_dim,
+                 output_dim,
                  n_layers,
-                 n_classes,
+                 norm,
+                 activation,
                  aggregate='sum',
+                 readout='max',
                  dropout=0):
         super(HeteroGraphConvModel, self).__init__()
-        self.edges = edges
+        self.edge_types = edge_types
         self.in_feats = in_feats
         self.hidden_dim = hidden_dim
-        self.aggregate = aggregate
+        self.output_dim = output_dim
         self.n_layers = n_layers
-        self.n_classes = n_classes
+        self.norm = norm
+        self.activation = activation
+        self.aggregate = aggregate
+        self.readout = readout
         self.dropout = thnn.Dropout(dropout)
         self.layers = thnn.ModuleList()
 
         # build multiple layers
         self.layers.append(HeteroGraphConv(
-            mods={edge: GraphConv(self.in_feats, self.hidden_dim, allow_zero_in_degree=True) for edge in self.edges},
+            mods={edge: GraphConv(self.in_feats, self.hidden_dim, norm=self.norm,
+                                  activation=self.activation, allow_zero_in_degree=True) for edge in self.edge_types},
             aggregate=self.aggregate))  # 第一个异质图卷积层
         for i in range(1, (self.n_layers - 1)):
             self.layers.append(HeteroGraphConv(
-                mods={edge: GraphConv(self.hidden_dim, self.hidden_dim, allow_zero_in_degree=True) for edge in self.edges},
+                mods={edge: GraphConv(self.hidden_dim, self.hidden_dim, norm=self.norm,
+                                      activation=self.activation, allow_zero_in_degree=True) for edge in self.edge_types},
                 aggregate=self.aggregate))  # 中间的异质图卷积层
         self.layers.append(HeteroGraphConv(
-                mods={edge: GraphConv(self.hidden_dim, self.n_classes, allow_zero_in_degree=True) for edge in self.edges},
-                aggregate=self.aggregate))  # 最后一个异质图卷积层
+            mods={edge: GraphConv(self.hidden_dim, self.output_dim, norm=self.norm,
+                                  activation=self.activation, allow_zero_in_degree=True) for edge in self.edge_types},
+            aggregate=self.aggregate))  # 最后一个异质图卷积层
 
-        self.linear = HeteroLinear(self.n_classes, self.n_classes)  # 添加一个线性层，用于将最后的特征进行线性变换
+        self.linear = HeteroLinear(self.output_dim, self.output_dim)  # 添加一个线性层，用于将最后的特征进行线性变换
 
         self.act = thnn.LeakyReLU(0.2)  # LeakyReLU 激活函数
 

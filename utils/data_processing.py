@@ -68,7 +68,7 @@ def data_processing_for_twitter(df: pd.DataFrame, snapshots=7):
     print(hetero_graph_list)
     dgl.save_graphs(os.path.join('./data', 'Twitter', 'Twitter.bin'), hetero_graph_list)  # 保存
     print('Hetero graph list has been saved')
-    return hetero_graph_list
+    return ['retweet', 'mention', 'reply'], [num]
 
 
 # Math-Overflow 数据处理
@@ -125,7 +125,7 @@ def data_processing_for_math_overflow(df: pd.DataFrame, snapshots=11):
     print(hetero_graph_list)
     dgl.save_graphs(os.path.join('./data', 'MathOverflow', 'MathOverflow.bin'), hetero_graph_list)  # 保存
     print('Hetero graph list has been saved')
-    return hetero_graph_list
+    return ['answer_to_questions', 'comment_to_answers', 'comment_to_questions'], [num]
 
 
 # EComm 数据处理
@@ -149,8 +149,9 @@ def data_processing_for_ecomm(df: pd.DataFrame, snapshots=11):
         if row['user'] not in user_map:
             user_map[row['user']] = user_num
             user_num += 1
+    for index, row in df.iterrows():
         if row['item'] not in item_map:
-            item_map[row['item']] = item_num
+            item_map[row['item']] = user_num + item_num
             item_num += 1
     df['user'] = df['user'].map(user_map)
     df['item'] = df['item'].map(item_map)
@@ -184,25 +185,25 @@ def data_processing_for_ecomm(df: pd.DataFrame, snapshots=11):
     print(hetero_graph_list)
     dgl.save_graphs(os.path.join('./data', 'EComm', 'EComm.bin'), hetero_graph_list)  # 保存
     print('Hetero graph list has been saved')
-    return hetero_graph_list
+    return ['click', 'buy', 'add_to_cart', 'add_to_favorite'], [user_num, item_num]
 
 
 # 获取 Twitter 数据
 def get_twitter(snapshots=7):
     df = load_data('Twitter')
-    hetero_graph_list = data_processing_for_twitter(df, snapshots)
-    return hetero_graph_list
+    edge_types, num_nodes_list = data_processing_for_twitter(df, snapshots)
+    return edge_types, num_nodes_list
 
 
 # 获取 Math-Overflow 数据
 def get_math_overflow(snapshots=11):
     df = load_data('MathOverflow')
-    hetero_graph_list = data_processing_for_math_overflow(df, snapshots)
-    return hetero_graph_list
+    edge_types, num_nodes_list = data_processing_for_math_overflow(df, snapshots)
+    return edge_types, num_nodes_list
 
 
 # 获取 EComm 数据
 def get_ecomm(snapshots=11):
     df = load_data('EComm')
-    hetero_graph_list = data_processing_for_ecomm(df, snapshots)
-    return hetero_graph_list
+    edge_types, num_nodes_list = data_processing_for_ecomm(df, snapshots)
+    return edge_types, num_nodes_list

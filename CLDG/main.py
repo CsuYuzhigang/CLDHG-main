@@ -9,8 +9,7 @@ import random
 import copy
 import dgl
 from dgl.dataloading import MultiLayerNeighborSampler, MultiLayerFullNeighborSampler
-from dgl.dataloading import NodeDataLoader
-# from dgl.dataloading import DataLoader
+from dgl.dataloading import DataLoader
 
 from sklearn.metrics import f1_score
 
@@ -78,14 +77,14 @@ def train(dataset, hidden_dim, n_layers, n_classes, fanouts, snapshots, views, s
         train_nid_per_gpu = th.tensor(train_nid_per_gpu)
 
         for sg_id in range(views):
-            train_dataloader = NodeDataLoader(temporal_subgraphs[sg_id],
-                                              train_nid_per_gpu,
-                                              sampler,
-                                              batch_size=train_nid_per_gpu.shape[0],
-                                              shuffle=False,
-                                              drop_last=False,
-                                              num_workers=num_workers,
-                                              )
+            train_dataloader = DataLoader(temporal_subgraphs[sg_id],
+                                          train_nid_per_gpu,
+                                          sampler,
+                                          batch_size=train_nid_per_gpu.shape[0],
+                                          shuffle=False,
+                                          drop_last=False,
+                                          num_workers=num_workers,
+                                          )
             train_dataloader_list.append(train_dataloader)
 
         seeds_emb = th.tensor([]).to(device_id)
@@ -113,7 +112,7 @@ def train(dataset, hidden_dim, n_layers, n_classes, fanouts, snapshots, views, s
                 labels = th.arange(pred1.shape[0]).to(device_id)
 
                 train_contrastive_loss = train_contrastive_loss + (
-                            loss_fn(pred1 / 0.07, labels) + loss_fn(pred2 / 0.07, labels)) / 2
+                        loss_fn(pred1 / 0.07, labels) + loss_fn(pred2 / 0.07, labels)) / 2
 
         optimizer.zero_grad()
         train_contrastive_loss.backward()
@@ -129,14 +128,14 @@ def train(dataset, hidden_dim, n_layers, n_classes, fanouts, snapshots, views, s
     graph = dgl.to_simple(graph)
     graph = dgl.to_bidirected(graph, copy_ndata=True)
     graph = dgl.add_self_loop(graph)
-    test_dataloader = NodeDataLoader(graph,
-                                     graph.nodes(),
-                                     sampler,
-                                     batch_size=dataloader_size,
-                                     shuffle=False,
-                                     drop_last=False,
-                                     num_workers=num_workers,
-                                     )
+    test_dataloader = DataLoader(graph,
+                                 graph.nodes(),
+                                 sampler,
+                                 batch_size=dataloader_size,
+                                 shuffle=False,
+                                 drop_last=False,
+                                 num_workers=num_workers,
+                                 )
 
     best_model.eval()
     for step, (input_nodes, seeds, blocks) in enumerate(test_dataloader):

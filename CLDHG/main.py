@@ -9,29 +9,33 @@ import random
 import copy
 import dgl
 from dgl.dataloading import MultiLayerNeighborSampler, MultiLayerFullNeighborSampler
-from dgl.dataloading import NodeDataLoader
-# from dgl.dataloading import DataLoader
+from dgl.dataloading import DataLoader
+# from dgl.dataloading import NodeDataLoader
 
 from sklearn.metrics import f1_score
 
-from models import GraphConvModel, MLPLinear, LogReg
-from utils.utils import load_to_dgl_graph, dataloader, sampling_layer, load_subtensor
+from models import MLPLinear, LogReg, HeteroGraphConvModel
+from utils.data_processing import get_twitter, get_math_overflow, get_ecomm
+from utils.utils import load_dataset, split_dataset, sampling_layer
 
 random.seed(2024)
 
 
-def train(dataset, hidden_dim, n_layers, n_classes, fanouts, snapshots, views, strategy, readout, batch_size,
+def train(dataset, hidden_dim, n_layers, output_dim, fanouts, snapshots, views, strategy, readout, batch_size,
           dataloader_size, num_workers, epochs, GPU):
     device_id = GPU
-    graph, node_feat = load_to_dgl_graph(dataset)
+    # 数据集处理函数映射字典
+    data_processing_dict = {'Twitter': get_twitter, 'MathOverflow': get_math_overflow, 'EComm': get_ecomm}
+
+    edge_types, num_nodes_list = data_processing_dict.get(dataset)()  # 数据集预处理
+    hetero_graph_list, node_feat = load_dataset(dataset, sum(num_nodes_list))  # 加载数据集
     sampler = MultiLayerNeighborSampler(fanouts)  # 初始化采样器
+    in_feats = node_feat.shape[1]  # 输入特征维度
 
-    in_feat = node_feat.shape[1]  # 输入特征维度
-
-    model = GraphConvModel(in_feat, hidden_dim, n_layers, n_classes, norm='both', activation=F.relu,
-                           readout=readout, dropout=0)  # 模型
+    model = HeteroGraphConvModel(edge_types, in_feats, hidden_dim, output_dim, n_layers, norm='both', activation=F.relu,
+                                 aggregate='sum', readout=readout, dropout=0)  # 模型
     model = model.to(device_id)
-    projection_model = MLPLinear(n_classes, n_classes).to(device_id)
+    projection_model = MLPLinear(output_dim, output_dim).to(device_id)
 
     loss_fn = thnn.CrossEntropyLoss().to(device_id)  # 交叉熵损失函数
 
@@ -71,21 +75,21 @@ def train(dataset, hidden_dim, n_layers, n_classes, fanouts, snapshots, views, s
         train_nid_per_gpu = th.tensor(train_nid_per_gpu)
 
         for sg_id in range(views):
-            train_dataloader = NodeDataLoader(temporal_subgraphs[sg_id],
-                                              train_nid_per_gpu,
-                                              sampler,
-                                              batch_size=train_nid_per_gpu.shape[0],
-                                              shuffle=False,
-                                              drop_last=False,
-                                              num_workers=num_workers,
-                                              )
+            train_dataloader = DataLoader(temporal_subgraphs[sg_id],
+                                          train_nid_per_gpu,
+                                          sampler,
+                                          batch_size=train_nid_per_gpu.shape[0],
+                                          shuffle=False,
+                                          drop_last=False,
+                                          num_workers=num_workers,
+                                          )
             train_dataloader_list.append(train_dataloader)
 
         seeds_emb = th.tensor([]).to(device_id)
         for train_dataloader in train_dataloader_list:
             for step, (input_nodes, seeds, blocks) in enumerate(train_dataloader):
                 # forward
-                batch_inputs = load_subtensor(node_feat, input_nodes, device_id)
+                batch_inputs = node_feat[input_nodes].to(device_id)  # 加载子张量至指定的设备
                 blocks = [block.to(device_id) for block in blocks]
 
                 # metric and loss
@@ -106,7 +110,7 @@ def train(dataset, hidden_dim, n_layers, n_classes, fanouts, snapshots, views, s
                 labels = th.arange(pred1.shape[0]).to(device_id)
 
                 train_contrastive_loss = train_contrastive_loss + (
-                            loss_fn(pred1 / 0.07, labels) + loss_fn(pred2 / 0.07, labels)) / 2
+                        loss_fn(pred1 / 0.07, labels) + loss_fn(pred2 / 0.07, labels)) / 2
 
         optimizer.zero_grad()
         train_contrastive_loss.backward()
@@ -121,18 +125,18 @@ def train(dataset, hidden_dim, n_layers, n_classes, fanouts, snapshots, views, s
 
     graph = dgl.to_simple(graph)
     graph = dgl.to_bidirected(graph, copy_ndata=True)
-    test_dataloader = NodeDataLoader(graph,
-                                     graph.nodes(),
-                                     sampler,
-                                     batch_size=dataloader_size,
-                                     shuffle=False,
-                                     drop_last=False,
-                                     num_workers=num_workers,
-                                     )
+    test_dataloader = DataLoader(graph,
+                                 graph.nodes(),
+                                 sampler,
+                                 batch_size=dataloader_size,
+                                 shuffle=False,
+                                 drop_last=False,
+                                 num_workers=num_workers,
+                                 )
 
     best_model.eval()
     for step, (input_nodes, seeds, blocks) in enumerate(test_dataloader):
-        batch_inputs = load_subtensor(node_feat, input_nodes, device_id)
+        batch_inputs = node_feat[input_nodes].to(device_id)  # 加载子张量至指定的设备
         blocks = [block.to(device_id) for block in blocks]
         test_batch_logits = best_model(blocks, batch_inputs)
 
@@ -143,7 +147,7 @@ def train(dataset, hidden_dim, n_layers, n_classes, fanouts, snapshots, views, s
             embeddings = th.cat((embeddings, batch_embeddings), axis=0)
 
     ''' Linear Evaluation '''
-    labels, train_idx, val_idx, test_idx, n_classes = dataloader(DATASET)
+    train_idx, val_idx, test_idx = split_dataset()  # TODO
     train_embs = embeddings[train_idx].to(device_id)
     val_embs = embeddings[val_idx].to(device_id)
     test_embs = embeddings[test_idx].to(device_id)
@@ -156,7 +160,7 @@ def train(dataset, hidden_dim, n_layers, n_classes, fanouts, snapshots, views, s
 
     micros, weights = [], []
     for _ in range(5):
-        logreg = LogReg(train_embs.shape[1], n_classes)
+        logreg = LogReg(train_embs.shape[1], output_dim)
         logreg = logreg.to(device_id)
         loss_fn = thnn.CrossEntropyLoss()
         opt = th.optim.Adam(logreg.parameters(), lr=1e-2, weight_decay=1e-4)
@@ -209,7 +213,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='CLDG')
     parser.add_argument('--dataset', type=str, help="Name of the dataset.")
     parser.add_argument('--hidden_dim', type=int, required=True)
-    parser.add_argument('--n_classes', type=int, required=True)
+    parser.add_argument('--output_dim', type=int, required=True)
     parser.add_argument('--n_layers', type=int, default=2)
     parser.add_argument("--fanout", type=str, required=True, help="fanout numbers", default='20,20')
     parser.add_argument('--snapshots', type=int, default=4)
@@ -226,7 +230,7 @@ if __name__ == '__main__':
     # parse arguments
     DATASET = args.dataset
     HID_DIM = args.hidden_dim
-    N_CLASSES = args.n_classes
+    OUTPUT_DIM = args.output_dim
     N_LAYERS = args.n_layers
     FANOUTS = [int(i) for i in args.fanout.split(',')]
     SNAPSHOTS = args.snapshots
@@ -249,6 +253,6 @@ if __name__ == '__main__':
     print('Number of workers per GPU: {}'.format(WORKERS))
     print('Max number of epochs: {}'.format(EPOCHS))
 
-    train(dataset=DATASET, hidden_dim=HID_DIM, n_layers=N_LAYERS, n_classes=N_CLASSES,
+    train(dataset=DATASET, hidden_dim=HID_DIM, n_layers=N_LAYERS, output_dim=OUTPUT_DIM,
           fanouts=FANOUTS, snapshots=SNAPSHOTS, views=VIEWS, strategy=STRATEGY, readout=READOUT,
           batch_size=BATCH_SIZE, dataloader_size=DATALOADER_SIZE, num_workers=WORKERS, epochs=EPOCHS, GPU=GPU)
