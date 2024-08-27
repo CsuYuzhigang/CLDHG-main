@@ -1,5 +1,6 @@
 import argparse
 import numpy as np
+import torch
 import torch as th
 import torch.nn as thnn
 import torch.nn.functional as F
@@ -52,22 +53,16 @@ def train(dataset, hidden_dim, n_layers, output_dim, fanouts, snapshots, views, 
         # mini-batch for training
         model.train()
         projection_model.train()
-        edges_time = graph.edata['time'].tolist()  # 边的时间
-        max_time, min_time, span = max(edges_time), min(edges_time), max(edges_time) - min(edges_time)  # 时间跨度与极值
         temporal_subgraphs, nids, train_dataloader_list = [], [], []  # 时间子图, 节点 id, 训练数据加载器
 
-        T = sampling_layer(snapshots, views, span, strategy)  # 采样
-        for start in T:
-            end = min(start + span / snapshots, max_time)
-            start = max(start, min_time)
-            sample_time = (graph.edata['time'] >= start) & (graph.edata['time'] <= end)
+        samples = sampling_layer(snapshots, views, strategy)  # 采样
 
-            temporal_subgraph = dgl.edge_subgraph(graph, sample_time, relabel_nodes=False)  # 时间子图
-
-            temporal_subgraph = dgl.to_simple(temporal_subgraph)  # 简化
-            temporal_subgraph = dgl.to_bidirected(temporal_subgraph, copy_ndata=True)  # 双向化
-            nids.append(th.unique(temporal_subgraph.edges()[0]))  # 添加节点 id
-            temporal_subgraphs.append(temporal_subgraph)  # 添加子图
+        for sample in samples:
+            ids = []
+            for ntype in hetero_graph_list[sample].ntypes:
+                ids.append(hetero_graph_list[sample].nodes(ntype))  # 添加所有类型的节点 id
+            nids.append(th.tensor(ids))  # 添加节点 id
+            temporal_subgraphs.append(hetero_graph_list[sample])  # 添加子图
 
         train_nid_per_gpu = list(reduce(lambda x, y: x & y, [set(nids[sg_id].tolist()) for sg_id in range(views)]))
         train_nid_per_gpu = random.sample(train_nid_per_gpu, batch_size)
@@ -123,6 +118,7 @@ def train(dataset, hidden_dim, n_layers, output_dim, fanouts, snapshots, views, 
 
     sampler = MultiLayerFullNeighborSampler(2)
 
+    # TODO
     graph = dgl.to_simple(graph)
     graph = dgl.to_bidirected(graph, copy_ndata=True)
     test_dataloader = DataLoader(graph,
