@@ -118,19 +118,20 @@ def train(dataset, hidden_dim, n_layers, output_dim, fanouts, snapshots, views, 
 
     sampler = MultiLayerFullNeighborSampler(2)
 
-    # TODO
-    graph = dgl.to_simple(graph)
-    graph = dgl.to_bidirected(graph, copy_ndata=True)
-    test_dataloader = DataLoader(graph,
-                                 graph.nodes(),
-                                 sampler,
-                                 batch_size=dataloader_size,
-                                 shuffle=False,
-                                 drop_last=False,
-                                 num_workers=num_workers,
-                                 )
+    # TODO: test
+    # graph = dgl.to_simple(graph)
+    # graph = dgl.to_bidirected(graph, copy_ndata=True)
+    # test_dataloader = DataLoader(graph,
+    #                              graph.nodes(),
+    #                              sampler,
+    #                              batch_size=dataloader_size,
+    #                              shuffle=False,
+    #                              drop_last=False,
+    #                              num_workers=num_workers,
+    #                              )
 
     best_model.eval()
+    '''
     for step, (input_nodes, seeds, blocks) in enumerate(test_dataloader):
         batch_inputs = node_feat[input_nodes].to(device_id)  # 加载子张量至指定的设备
         blocks = [block.to(device_id) for block in blocks]
@@ -142,8 +143,8 @@ def train(dataset, hidden_dim, n_layers, output_dim, fanouts, snapshots, views, 
         else:
             embeddings = th.cat((embeddings, batch_embeddings), axis=0)
 
-    ''' Linear Evaluation '''
-    train_idx, val_idx, test_idx = split_dataset()  # TODO
+    # Linear Evaluation
+    train_idx, val_idx, test_idx = split_dataset(num_nodes_list)
     train_embs = embeddings[train_idx].to(device_id)
     val_embs = embeddings[val_idx].to(device_id)
     test_embs = embeddings[test_idx].to(device_id)
@@ -203,6 +204,7 @@ def train(dataset, hidden_dim, n_layers, output_dim, fanouts, snapshots, views, 
 
     micros, weights = th.stack(micros), th.stack(weights)
     print('Linear evaluation Accuracy:{:.4f}, Weighted-F1={:.4f}'.format(micros.mean().item(), weights.mean().item()))
+    '''
 
 
 if __name__ == '__main__':
