@@ -28,15 +28,15 @@ def train(dataset, hidden_dim, n_layers, output_dim, fanouts, snapshots, views, 
     # 数据集处理函数映射字典
     data_processing_dict = {'Twitter': get_twitter, 'MathOverflow': get_math_overflow, 'EComm': get_ecomm}
 
-    edge_types, num_nodes_list = data_processing_dict.get(dataset)()  # 数据集预处理
-    hetero_graph_list, node_feat = load_dataset(dataset, sum(num_nodes_list))  # 加载数据集
+    edge_types, node_types_dict = data_processing_dict.get(dataset)()  # 数据集预处理
+    hetero_graph_list, node_feat = load_dataset(dataset, sum(node_types_dict.values()))  # 加载数据集
     sampler = MultiLayerNeighborSampler(fanouts)  # 初始化采样器
     in_feats = node_feat.shape[1]  # 输入特征维度
 
-    model = HeteroGraphConvModel(edge_types, in_feats, hidden_dim, output_dim, n_layers, norm='both', activation=F.relu,
-                                 aggregate='sum', readout=readout, dropout=0)  # 模型
+    model = HeteroGraphConvModel(edge_types, node_types_dict.keys(), in_feats, hidden_dim, output_dim, n_layers, norm='both',
+                                 activation=F.relu, aggregate='sum', readout=readout, dropout=0)  # 模型
     model = model.to(device_id)
-    projection_model = MLPLinear(output_dim, output_dim).to(device_id)
+    projection_model = MLPLinear(node_types_dict.keys(), output_dim, output_dim).to(device_id)
 
     loss_fn = thnn.CrossEntropyLoss().to(device_id)  # 交叉熵损失函数
 
@@ -60,8 +60,8 @@ def train(dataset, hidden_dim, n_layers, output_dim, fanouts, snapshots, views, 
         for sample in samples:
             ids = []
             for ntype in hetero_graph_list[sample].ntypes:
-                ids.append(hetero_graph_list[sample].nodes(ntype))  # 添加所有类型的节点 id
-            nids.append(th.tensor(ids))  # 添加节点 id
+                ids.append(hetero_graph_list[sample].nodes(ntype).tolist())  # 添加所有类型的节点 id
+            nids.append(th.unique(th.tensor(ids).view(-1)))  # 添加节点 id
             temporal_subgraphs.append(hetero_graph_list[sample])  # 添加子图
 
         train_nid_per_gpu = list(reduce(lambda x, y: x & y, [set(nids[sg_id].tolist()) for sg_id in range(views)]))
@@ -84,7 +84,32 @@ def train(dataset, hidden_dim, n_layers, output_dim, fanouts, snapshots, views, 
         for train_dataloader in train_dataloader_list:
             for step, (input_nodes, seeds, blocks) in enumerate(train_dataloader):
                 # forward
-                batch_inputs = node_feat[input_nodes].to(device_id)  # 加载子张量至指定的设备
+                node_types_num = len(node_types_dict.keys())
+                input_nodes.sort()  # 从小到大排序
+                if node_types_num == 1:
+                    batch_inputs = {key: node_feat[input_nodes].to(device_id) for key in node_types_dict.keys()}
+                else:
+                    # 将列表分为若干份
+                    inputs_list = [[] for _ in range(node_types_num)]  # 若干份列表
+                    thresholds = []  # 每份列表的取值范围
+                    threshold = 0
+                    for i in range(node_types_num):
+                        threshold += node_types_dict.values()[i]
+                        thresholds.append(threshold)
+                    # 将节点划分入若干份列表
+                    index = 0  # 第 0 个列表
+                    i = 0
+                    while i < len(input_nodes):
+                        if input_nodes[i] < thresholds[index]:
+                            inputs_list[index].append(input_nodes[i])  # 将节点划分进入第 index 个列表
+                            i += 1  # 移动到下一个元素
+                        else:
+                            index += 1  # 切换到下一个列表
+                            # 不增加 i 的值，这样可以重新检查当前元素
+
+                    batch_inputs = {node_types_dict.keys()[i]: node_feat[inputs_list[i]].to(device_id)
+                                    for i in range(node_types_num)}  # 加载子张量至指定的设备
+
                 blocks = [block.to(device_id) for block in blocks]
 
                 # metric and loss

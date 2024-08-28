@@ -14,16 +14,20 @@ class LogReg(thnn.Module):
 
 
 class MLPLinear(thnn.Module):  # 线性层
-    def __init__(self, in_dim, out_dim):
+    def __init__(self, node_types, in_dim, out_dim):
         super(MLPLinear, self).__init__()
-        self.linear1 = HeteroLinear(in_dim, out_dim)  # 线性层 1
-        self.linear2 = HeteroLinear(out_dim, out_dim)  # 线性层 2
+        self.linear1 = HeteroLinear({node: in_dim for node in node_types}, out_dim)  # 线性层 1
+        self.linear2 = HeteroLinear({node: out_dim for node in node_types}, out_dim)  # 线性层 2
         self.act = thnn.LeakyReLU(0.2)  # LeakyReLU 激活函数
         self.reset_parameters()  # 初始化参数
 
     def reset_parameters(self):  # 初始化参数
-        self.linear1.reset_parameters()
-        self.linear2.reset_parameters()
+        for param in self.linear1.parameters():
+            if param.dim() > 1:
+                thnn.init.xavier_uniform_(param)
+        for param in self.linear2.parameters():
+            if param.dim() > 1:
+                thnn.init.xavier_uniform_(param)
 
     def forward(self, x):  # 前向传播
         x = self.act(F.normalize(self.linear1(x), p=2, dim=1))
@@ -90,6 +94,7 @@ class GraphConvModel(thnn.Module):
 class HeteroGraphConvModel(thnn.Module):
     def __init__(self,
                  edge_types,
+                 node_types,
                  in_feats,
                  hidden_dim,
                  output_dim,
@@ -101,6 +106,7 @@ class HeteroGraphConvModel(thnn.Module):
                  dropout=0):
         super(HeteroGraphConvModel, self).__init__()
         self.edge_types = edge_types
+        self.node_types = node_types
         self.in_feats = in_feats
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
@@ -127,7 +133,7 @@ class HeteroGraphConvModel(thnn.Module):
                                   activation=self.activation, allow_zero_in_degree=True) for edge in self.edge_types},
             aggregate=self.aggregate))  # 最后一个异质图卷积层
 
-        self.linear = HeteroLinear(self.output_dim, self.output_dim)  # 添加一个线性层，用于将最后的特征进行线性变换
+        self.linear = HeteroLinear({node: self.output_dim for node in self.node_types}, self.output_dim)  # 添加一个线性层，用于将最后的特征进行线性变换
 
         self.act = thnn.LeakyReLU(0.2)  # LeakyReLU 激活函数
 

@@ -6,9 +6,9 @@ import torch
 
 # 加载数据
 def load_data(dataset_name: str):
-    file_path = os.path.join('./data', dataset_name, '{}.txt'.format(dataset_name))  # 文件路径
+    file_path = os.path.join('../data', dataset_name, '{}.txt'.format(dataset_name))  # 文件路径
     if not os.path.exists(file_path):
-        print('File not found')  # 文件不存在
+        print('-----File not found-----')  # 文件不存在
         return None
 
     df = pd.read_csv(file_path, delimiter=' ', header=None)  # 读取数据
@@ -68,7 +68,7 @@ def data_processing_for_twitter(df: pd.DataFrame, snapshots=7):
     print(hetero_graph_list)
     dgl.save_graphs(os.path.join('./data', 'Twitter', 'Twitter.bin'), hetero_graph_list)  # 保存
     print('Hetero graph list has been saved')
-    return ['retweet', 'mention', 'reply'], [num]
+    return ['retweet', 'mention', 'reply'], {'user': num}
 
 
 # Math-Overflow 数据处理
@@ -125,7 +125,7 @@ def data_processing_for_math_overflow(df: pd.DataFrame, snapshots=11):
     print(hetero_graph_list)
     dgl.save_graphs(os.path.join('./data', 'MathOverflow', 'MathOverflow.bin'), hetero_graph_list)  # 保存
     print('Hetero graph list has been saved')
-    return ['answer_to_questions', 'comment_to_answers', 'comment_to_questions'], [num]
+    return ['answer_to_questions', 'comment_to_answers', 'comment_to_questions'], {'user': num}
 
 
 # EComm 数据处理
@@ -185,25 +185,25 @@ def data_processing_for_ecomm(df: pd.DataFrame, snapshots=11):
     print(hetero_graph_list)
     dgl.save_graphs(os.path.join('./data', 'EComm', 'EComm.bin'), hetero_graph_list)  # 保存
     print('Hetero graph list has been saved')
-    return ['click', 'buy', 'add_to_cart', 'add_to_favorite'], [user_num, item_num]
+    return ['click', 'buy', 'add_to_cart', 'add_to_favorite'], {'user': user_num, 'item': item_num}
 
 
 # 获取 Twitter 数据
 def get_twitter(snapshots=7):
     df = load_data('Twitter')
-    edge_types, num_nodes_list = data_processing_for_twitter(df, snapshots)
-    return edge_types, num_nodes_list
+    edge_types, node_types_dict = data_processing_for_twitter(df, snapshots)
+    return edge_types, node_types_dict
 
 
 # 获取 Math-Overflow 数据
 def get_math_overflow(snapshots=11):
     df = load_data('MathOverflow')
-    edge_types, num_nodes_list = data_processing_for_math_overflow(df, snapshots)
-    return edge_types, num_nodes_list
+    edge_types, node_types_dict = data_processing_for_math_overflow(df, snapshots)
+    return edge_types, node_types_dict
 
 
 # 获取 EComm 数据
 def get_ecomm(snapshots=11):
     df = load_data('EComm')
-    edge_types, num_nodes_list = data_processing_for_ecomm(df, snapshots)
-    return edge_types, num_nodes_list
+    edge_types, node_types_dict = data_processing_for_ecomm(df, snapshots)
+    return edge_types, node_types_dict

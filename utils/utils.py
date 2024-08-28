@@ -6,7 +6,7 @@ import math
 
 
 def load_dataset(dataset, num_nodes, emb_size=128):
-    hetero_graph_list = dgl.load_graphs(os.path.join('../data/', dataset, '{}.bin'.format(dataset)))  # 异质图列表
+    hetero_graph_list = dgl.load_graphs(os.path.join('../data/', dataset, '{}.bin'.format(dataset)))[0]  # 异质图列表
     node_feat = position_encoding(max_len=num_nodes, emb_size=emb_size)  # 节点特征
     return hetero_graph_list, node_feat
 
