@@ -1,44 +1,30 @@
-# CLDG: Contrastive Learning on Dynamic Graphs (ICDE'23)
+# CLDHG: Contrastive Learning on Dynamic Heterogeneous Graphs
 ## Code structure
-| *folder*  |                         description                          |
-| :-------: | :----------------------------------------------------------: |
-|   Data    |      Datasets.       |
-|   CLDG    | CLDG implementation code is provided. |
+| *folder* |              description               |
+|:--------:|:--------------------------------------:|
+|   data   |               Datasets.                |
+|  CLDHG   | CLDHG implementation code is provided. |
 
 ## Datasets
 
-| **Dataset** | # nodes |  # temporal edges  | # classes |
-| :---------: | :--------: | :-----: | :--------: |
-|  **DBLP**   |     25,387      | 185,480 |     10      |
-|  **Bitcoinotc**   |     5,881      | 35,592 |     3      |
-|  **TAX**   |     27,097      | 315,478 |     12      |
-|  **BITotc**   |     4,863      | 28,473 |     7      |
-|  **BITalpha**   |     3,219      | 19,364 |     7      |
-| **TAX51** | 132,524 | 467,279 | 51 |
-| **Reddit** | 898,194 | 2,575,464 | 3 |
+|   **Dataset**    | # nodes | # temporal edges | # node types | # edge types | # snapshots |
+|:----------------:|:-------:|:----------------:|:------------:|:------------:|:-----------:|
+|   **Twitter**    | 100,000 |      63,410      |      1       |      3       |      7      |
+| **MathOverflow** | 24,818  |     506,550      |      1       |      3       |     11      |
+|    **EComm**     | 37,724  |      91,033      |      2       |      4       |     11      |
+
 
 ## Usage
 ```python
-# DBLP
-python main.py --dataset dblp --hidden_dim 128 --n_classes 64 --n_layers 2 --fanout 20,20 --snapshots 4 --views 4 --strategy sequential --epochs 200 --GPU 0
+# Twitter
+python main.py --dataset Twitter --hidden_dim 128 --output_dim 64 --n_layers 2 --fanout 20,20 --snapshots 7 --views 4 --strategy random --epochs 200 --GPU 0
 
-# Bitcoinotc
-python main.py --dataset bitcoinotc --hidden_dim 128 --n_classes 64 --n_layers 2 --fanout 10,10 --snapshots 4 --views 3 --strategy sequential --dataloader_size 64 --epochs 25 --GPU 0
+# MathOverflow
+python main.py --dataset MathOverflow --hidden_dim 128 --output_dim 64 --n_layers 2 --fanout 20,20 --snapshots 11 --views 3 --strategy random --epochs 200 --GPU 0
 
-# TAX
-python main.py --dataset tax --hidden_dim 128 --n_classes 64 --n_layers 2 --fanout 20,20 --snapshots 4 --views 4 --strategy sequential --epochs 200 --GPU 0
+# EComm
+python main.py --dataset EComm --hidden_dim 128 --output_dim 64 --n_layers 2 --fanout 20,20 --snapshots 11 --views 4 --strategy random --epochs 200 --GPU 0
 
-# BITotc
-python main.py --dataset bitotc --hidden_dim 128 --n_classes 64 --n_layers 2 --fanout 10,10 --snapshots 4 --views 4 --strategy random --epochs 50 --GPU 0
-
-# BITalpha
-python main.py --dataset bitalpha --hidden_dim 128 --n_classes 64 --n_layers 2 --fanout 20,20 --snapshots 6 --views 4 --strategy sequential --epochs 200 --GPU 0
-
-# TAX51
-python main.py --dataset tax51 --hidden_dim 128 --n_classes 64 --n_layers 2 --fanout 20,20 --snapshots 8 --views 5 --strategy random --epochs 200 --GPU 0
-
-# reddit
-python main.py --dataset reddit --hidden_dim 128 --n_classes 64 --n_layers 2 --fanout 20,20 --snapshots 5 --views 4 --strategy random --epochs 200 --GPU 0
 ```
 
 ## Dependencies
@@ -50,12 +36,12 @@ python main.py --dataset reddit --hidden_dim 128 --n_classes 64 --n_layers 2 --f
 ## Reference
 If you find this repository useful in your research, please consider citing the following paper:
 ```
-@inproceedings{xu2023cldg,
-  title={CLDG: Contrastive Learning on Dynamic Graphs},
-  author={Xu, Yiming and Shi, Bin and Ma, Teng and Dong, Bo and Zhou, Haoyi and Zheng, Qinghua},
-  booktitle={2023 IEEE 39th International Conference on Data Engineering (ICDE)},
-  pages={696--707},
-  year={2023},
-  organization={IEEE}
+@inproceedings{
+  title={CLDHG: Contrastive Learning on Dynamic Heterogeneous Graphs},
+  author={},
+  booktitle={},
+  pages={},
+  year={},
+  organization={}
 }
 ```
