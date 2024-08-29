@@ -30,8 +30,14 @@ class MLPLinear(thnn.Module):  # 线性层
                 thnn.init.xavier_uniform_(param)
 
     def forward(self, x):  # 前向传播
-        x = self.act(F.normalize(self.linear1(x), p=2, dim=1))
-        x = self.act(F.normalize(self.linear2(x), p=2, dim=1))
+        # 线性变换
+        x = self.linear1(x)
+        # 对字典特征进行非线性处理
+        x = {key: self.act(F.normalize(tensor, p=2, dim=1)) for key, tensor in x.items()}
+        # 线性变换
+        x = self.linear2(x)
+        # 对字典特征进行非线性处理
+        x = {key: self.act(F.normalize(tensor, p=2, dim=1)) for key, tensor in x.items()}
 
         return x
 
@@ -102,8 +108,7 @@ class HeteroGraphConvModel(thnn.Module):
                  norm,
                  activation,
                  aggregate='sum',
-                 readout='max',
-                 dropout=0):
+                 readout='max'):
         super(HeteroGraphConvModel, self).__init__()
         self.edge_types = edge_types
         self.node_types = node_types
@@ -115,7 +120,6 @@ class HeteroGraphConvModel(thnn.Module):
         self.activation = activation
         self.aggregate = aggregate
         self.readout = readout
-        self.dropout = thnn.Dropout(dropout)
         self.layers = thnn.ModuleList()
 
         # build multiple layers
@@ -142,9 +146,9 @@ class HeteroGraphConvModel(thnn.Module):
         h = features
         for i, (layer, block) in enumerate(zip(self.layers, blocks)):
             h = layer(block, h)
-            if i != len(self.layers) - 1:
-                h = self.dropout(h)
-
-        h = self.act(F.normalize(self.linear(h), p=2, dim=1))
+        # 线性变换
+        h = self.linear(h)
+        # 对字典特征进行非线性处理
+        h = {key: self.act(F.normalize(tensor, p=2, dim=1)) for key, tensor in h.items()}
 
         return h
