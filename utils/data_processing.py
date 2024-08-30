@@ -66,7 +66,7 @@ def data_processing_for_twitter(df: pd.DataFrame, snapshots=7):
         # 添加至列表
         hetero_graph_list.append(hetero_graph)
     print(hetero_graph_list)
-    dgl.save_graphs(os.path.join('./data', 'Twitter', 'Twitter.bin'), hetero_graph_list)  # 保存
+    dgl.save_graphs(os.path.join('../data', 'Twitter', 'Twitter.bin'), hetero_graph_list)  # 保存
     print('Hetero graph list has been saved')
     return ['retweet', 'mention', 'reply'], {'user': num}
 
@@ -123,7 +123,7 @@ def data_processing_for_math_overflow(df: pd.DataFrame, snapshots=11):
         # 添加至列表
         hetero_graph_list.append(hetero_graph)
     print(hetero_graph_list)
-    dgl.save_graphs(os.path.join('./data', 'MathOverflow', 'MathOverflow.bin'), hetero_graph_list)  # 保存
+    dgl.save_graphs(os.path.join('../data', 'MathOverflow', 'MathOverflow.bin'), hetero_graph_list)  # 保存
     print('Hetero graph list has been saved')
     return ['answer_to_questions', 'comment_to_answers', 'comment_to_questions'], {'user': num}
 
@@ -183,7 +183,7 @@ def data_processing_for_ecomm(df: pd.DataFrame, snapshots=11):
         # 添加至列表
         hetero_graph_list.append(hetero_graph)
     print(hetero_graph_list)
-    dgl.save_graphs(os.path.join('./data', 'EComm', 'EComm.bin'), hetero_graph_list)  # 保存
+    dgl.save_graphs(os.path.join('../data', 'EComm', 'EComm.bin'), hetero_graph_list)  # 保存
     print('Hetero graph list has been saved')
     return ['click', 'buy', 'add_to_cart', 'add_to_favorite'], {'user': user_num, 'item': item_num}
 
