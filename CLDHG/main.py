@@ -12,11 +12,14 @@ import dgl
 from dgl.dataloading import MultiLayerNeighborSampler, MultiLayerFullNeighborSampler
 from dgl.dataloading import DataLoader
 # from dgl.dataloading import NodeDataLoader
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sklearn.metrics import f1_score
 
 from models import MLPLinear, LogReg, HeteroGraphConvModel
-from utils.data_processing import get_twitter, get_math_overflow, get_ecomm
+from utils.data_processing import get_twitter, get_math_overflow, get_ecomm, get_yelp
 from utils.utils import load_dataset, split_dataset, sampling_layer
 
 random.seed(2024)
@@ -26,7 +29,8 @@ def train(dataset, hidden_dim, n_layers, output_dim, fanouts, snapshots, views, 
           dataloader_size, num_workers, epochs, GPU):
     device_id = GPU
     # 数据集处理函数映射字典
-    data_processing_dict = {'Twitter': get_twitter, 'MathOverflow': get_math_overflow, 'EComm': get_ecomm}
+    data_processing_dict = {'Twitter': get_twitter, 'MathOverflow': get_math_overflow, 'EComm': get_ecomm,
+                            'Yelp': get_yelp}
 
     edge_types, node_types_dict = data_processing_dict.get(dataset)()  # 数据集预处理
     hetero_graph_list, node_feat = load_dataset(dataset, sum(list(node_types_dict.values())))  # 加载数据集

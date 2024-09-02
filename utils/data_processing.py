@@ -6,7 +6,7 @@ import torch
 
 # 加载数据
 def load_data(dataset_name: str):
-    file_path = os.path.join('../data', dataset_name, '{}.txt'.format(dataset_name))  # 文件路径
+    file_path = os.path.join('./data', dataset_name, '{}.txt'.format(dataset_name))  # 文件路径
     if not os.path.exists(file_path):
         print('-----File not found-----')  # 文件不存在
         return None
@@ -59,7 +59,7 @@ def data_processing_for_twitter(df: pd.DataFrame, snapshots=7):
             ('user', 'reply', 'user'): (torch.tensor(df_reply['userA'].to_numpy()), torch.tensor(df_reply['userB'].to_numpy())),
         }
         # 创建异构图
-        hetero_graph = dgl.heterograph(data_dict)
+        hetero_graph = dgl.heterograph(data_dict, {'user': num})
         # 异构图预处理
         hetero_graph = dgl.to_simple(hetero_graph)  # 简化
         hetero_graph = dgl.to_bidirected(hetero_graph, copy_ndata=True)  # 双向化
@@ -68,6 +68,7 @@ def data_processing_for_twitter(df: pd.DataFrame, snapshots=7):
     print(hetero_graph_list)
     dgl.save_graphs(os.path.join('../data', 'Twitter', 'Twitter.bin'), hetero_graph_list)  # 保存
     print('Hetero graph list has been saved')
+    print({'user': num})
     return ['retweet', 'mention', 'reply'], {'user': num}
 
 
@@ -116,7 +117,7 @@ def data_processing_for_math_overflow(df: pd.DataFrame, snapshots=11):
             ('user', 'comment_to_questions', 'user'): (torch.tensor(df_c2q['userA'].to_numpy()), torch.tensor(df_c2q['userB'].to_numpy())),
         }
         # 创建异构图
-        hetero_graph = dgl.heterograph(data_dict)
+        hetero_graph = dgl.heterograph(data_dict, {'user': num})
         # 异构图预处理
         hetero_graph = dgl.to_simple(hetero_graph)  # 简化
         hetero_graph = dgl.to_bidirected(hetero_graph, copy_ndata=True)  # 双向化
@@ -125,6 +126,7 @@ def data_processing_for_math_overflow(df: pd.DataFrame, snapshots=11):
     print(hetero_graph_list)
     dgl.save_graphs(os.path.join('../data', 'MathOverflow', 'MathOverflow.bin'), hetero_graph_list)  # 保存
     print('Hetero graph list has been saved')
+    print({'user': num})
     return ['answer_to_questions', 'comment_to_answers', 'comment_to_questions'], {'user': num}
 
 
@@ -177,7 +179,7 @@ def data_processing_for_ecomm(df: pd.DataFrame, snapshots=11):
             ('user', 'add_to_favorite', 'item'): (torch.tensor(df_a2f['user'].to_numpy()), torch.tensor(df_a2f['item'].to_numpy())),
         }
         # 创建异构图
-        hetero_graph = dgl.heterograph(data_dict)
+        hetero_graph = dgl.heterograph(data_dict, {'user': user_num, 'item': item_num})
         # 异构图预处理
         hetero_graph = dgl.to_simple(hetero_graph)  # 简化
         # 添加至列表
@@ -185,7 +187,61 @@ def data_processing_for_ecomm(df: pd.DataFrame, snapshots=11):
     print(hetero_graph_list)
     dgl.save_graphs(os.path.join('../data', 'EComm', 'EComm.bin'), hetero_graph_list)  # 保存
     print('Hetero graph list has been saved')
-    return ['click', 'buy', 'add_to_cart', 'add_to_favorite'], {'user': user_num, 'item': item_num}
+    print({'user': user_num, 'item': item_num})
+    return ['click', 'buy', 'add_to_cart', 'add_to_favorite'], {'user': user_num, 'item': item_num + user_num}
+
+
+def data_processing_for_yelp(df: pd.DataFrame, snapshots=11):
+    df.columns = ['item', 'user', 'timestamp', 'edge_type']
+    df_list = []
+    hetero_graph_list = []
+
+    # 处理时间, 对时间戳分段
+    min_time = df['timestamp'].min()
+    max_time = df['timestamp'].max()
+    time_slot = (max_time - min_time + snapshots - 1) // snapshots  # 向上取整
+    df['timestamp'] = df['timestamp'].apply(lambda x: (x - min_time) // time_slot)
+
+    # 处理节点序号, 使之连续
+    item_map = {}  # 商品序号映射 map
+    user_map = {}  # 用户序号映射 map
+    item_num = 0  # 商品初始序号
+    user_num = 0  # 用户初始序号
+    for index, row in df.iterrows():
+        if row['item'] not in item_map:
+            item_map[row['item']] = item_num
+            item_num += 1
+    for index, row in df.iterrows():
+        if row['user'] not in user_map:
+            user_map[row['user']] = item_num + user_num
+            user_num += 1
+    df['user'] = df['user'].map(user_map)
+
+    # 定义节点和边类型
+    node_types = ['user', 'item']
+    edge_types = [('user', 'buy', 'item')]
+    edge_map = {'buy': 'buy'}
+    # 构造异质动态图
+    for index in range(snapshots):
+        # 对每个时间段构造异质图
+        df_curr = df[df['timestamp'] == index]  # 取当前时间段的数据
+        df_list.append(df_curr)
+        df_buy = df_curr[df_curr['edge_type'] == 'buy']  # buy 类型的边
+        # 定义每种类型的边
+        data_dict = {
+            ('user', 'buy', 'item'): (torch.tensor(df_buy['user'].to_numpy()), torch.tensor(df_buy['item'].to_numpy())),
+        }
+        # 创建异构图
+        hetero_graph = dgl.heterograph(data_dict, {'user': user_num + item_num, 'item': item_num})
+        # 异构图预处理
+        hetero_graph = dgl.to_simple(hetero_graph)  # 简化
+        # 添加至列表
+        hetero_graph_list.append(hetero_graph)
+    print(hetero_graph_list)
+    dgl.save_graphs(os.path.join('./data', 'Yelp', 'Yelp.bin'), hetero_graph_list)  # 保存
+    print('Hetero graph list has been saved')
+    print({'user': user_num, 'item': item_num})
+    return ['buy'], {'user': user_num, 'item': item_num}
 
 
 # 获取 Twitter 数据
@@ -207,3 +263,11 @@ def get_ecomm(snapshots=11):
     df = load_data('EComm')
     edge_types, node_types_dict = data_processing_for_ecomm(df, snapshots)
     return edge_types, node_types_dict
+
+# 获取 Yelp 数据
+def get_yelp(snapshots=11):
+    df = load_data('Yelp')
+    edge_types, node_types_dict = data_processing_for_yelp(df, snapshots)
+    return edge_types, node_types_dict
+
+

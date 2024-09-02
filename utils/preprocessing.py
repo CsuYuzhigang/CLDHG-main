@@ -1,4 +1,6 @@
 import os
+import time
+from datetime import datetime
 
 import pandas as pd
 
@@ -51,3 +53,22 @@ def preprocessing_for_ecomm():
     edge_type_map = {1: 'click', 2: 'buy', 3: 'a2c', 4: 'a2f'}  # 边的种类
     df[3] = df[3].map(edge_type_map)  # 边的种类映射
     df.to_csv(file_path, sep=' ', index=False, header=False)  # 保存
+
+
+# Yelp 预处理
+def preprocessing_for_yelp():
+    # 处理 label 文件
+    # file_path = os.path.join('./data', 'Yelp', 'Yelp_label.txt')
+    # df = pd.read_csv(file_path, delimiter=' ', header=None)  # 读取数据
+    # df[0] = df[0] - 1  # id 从 0 开始
+    # df.to_csv(file_path, sep=' ', index=False, header=False)  # 保存
+
+    # 处理数据文件
+    file_path = os.path.join('./data', 'Yelp', 'Yelp.txt')
+    df = pd.read_csv(file_path, delimiter=' ', header=None)  # 读取数据
+    df[0], df[1] = df[1] - 1, df[0]  # 交换两列
+    df[2] = (df[3] + ' ' + df[4]).apply(lambda x: int(time.mktime(datetime.strptime(x, "%Y-%m-%d %H:%M:%S").timetuple()))) # 时间戳转换为整型
+    df[3] = 'buy'
+    df.drop(df.columns[4], axis=1, inplace=True)
+    df.to_csv(file_path, sep=' ', index=False, header=False)  # 保存
+
