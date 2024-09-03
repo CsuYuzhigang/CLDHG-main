@@ -6,7 +6,7 @@ import torch
 
 # 加载数据
 def load_data(dataset_name: str):
-    file_path = os.path.join('./data', dataset_name, '{}.txt'.format(dataset_name))  # 文件路径
+    file_path = os.path.join('../data', dataset_name, '{}.txt'.format(dataset_name))  # 文件路径
     if not os.path.exists(file_path):
         print('-----File not found-----')  # 文件不存在
         return None
@@ -238,10 +238,94 @@ def data_processing_for_yelp(df: pd.DataFrame, snapshots=11):
         # 添加至列表
         hetero_graph_list.append(hetero_graph)
     print(hetero_graph_list)
-    dgl.save_graphs(os.path.join('./data', 'Yelp', 'Yelp.bin'), hetero_graph_list)  # 保存
+    dgl.save_graphs(os.path.join('../data', 'Yelp', 'Yelp.bin'), hetero_graph_list)  # 保存
     print('Hetero graph list has been saved')
     print({'user': user_num, 'item': item_num})
     return ['buy'], {'user': user_num, 'item': item_num}
+
+
+def data_processing_for_dblp(df: pd.DataFrame, snapshots=11):
+    df.columns = ['author', 'paper', 'timestamp', 'edge_type']
+    df_list = []
+    hetero_graph_list = []
+
+    # 处理时间, 对时间戳分段
+    min_time = df['timestamp'].min()
+    max_time = df['timestamp'].max()
+    time_slot = (max_time - min_time + snapshots - 1) // snapshots  # 向上取整
+    df['timestamp'] = df['timestamp'].apply(lambda x: (x - min_time) // time_slot)
+
+    # 处理节点序号已处理
+    author_num = df['author'].nunique()
+    paper_num = df['paper'].nunique()
+
+    # 定义节点和边类型
+    node_types = ['author', 'paper']
+    edge_types = [('author', 'write', 'paper')]
+    edge_map = {'write': 'write'}
+    # 构造异质动态图
+    for index in range(snapshots):
+        # 对每个时间段构造异质图
+        df_curr = df[df['timestamp'] == index]  # 取当前时间段的数据
+        df_list.append(df_curr)
+        df_write = df_curr[df_curr['edge_type'] == 'write']  # write 类型的边
+        # 定义每种类型的边
+        data_dict = {
+            ('author', 'write', 'paper'): (torch.tensor(df_write['author'].to_numpy()), torch.tensor(df_write['paper'].to_numpy())),
+        }
+        # 创建异构图
+        hetero_graph = dgl.heterograph(data_dict, {'author': author_num, 'paper': author_num + paper_num})
+        # 异构图预处理
+        hetero_graph = dgl.to_simple(hetero_graph)  # 简化
+        # 添加至列表
+        hetero_graph_list.append(hetero_graph)
+    print(hetero_graph_list)
+    dgl.save_graphs(os.path.join('../data', 'DBLP', 'DBLP.bin'), hetero_graph_list)  # 保存
+    print('Hetero graph list has been saved')
+    print({'author': author_num, 'paper': paper_num})
+    return ['write'], {'author': author_num, 'paper': paper_num}
+
+
+def data_processing_for_aminer(df: pd.DataFrame, snapshots=11):
+    df.columns = ['author', 'paper', 'timestamp', 'edge_type']
+    df_list = []
+    hetero_graph_list = []
+
+    # 处理时间, 对时间戳分段
+    min_time = df['timestamp'].min()
+    max_time = df['timestamp'].max()
+    time_slot = (max_time - min_time + snapshots - 1) // snapshots  # 向上取整
+    df['timestamp'] = df['timestamp'].apply(lambda x: (x - min_time) // time_slot)
+
+    # 处理节点序号已处理
+    author_num = df['author'].nunique()
+    paper_num = df['paper'].nunique()
+
+    # 定义节点和边类型
+    node_types = ['author', 'paper']
+    edge_types = [('author', 'write', 'paper')]
+    edge_map = {'write': 'write'}
+    # 构造异质动态图
+    for index in range(snapshots):
+        # 对每个时间段构造异质图
+        df_curr = df[df['timestamp'] == index]  # 取当前时间段的数据
+        df_list.append(df_curr)
+        df_write = df_curr[df_curr['edge_type'] == 'write']  # write 类型的边
+        # 定义每种类型的边
+        data_dict = {
+            ('author', 'write', 'paper'): (torch.tensor(df_write['author'].to_numpy()), torch.tensor(df_write['paper'].to_numpy())),
+        }
+        # 创建异构图
+        hetero_graph = dgl.heterograph(data_dict, {'author': author_num, 'paper': author_num + paper_num})
+        # 异构图预处理
+        hetero_graph = dgl.to_simple(hetero_graph)  # 简化
+        # 添加至列表
+        hetero_graph_list.append(hetero_graph)
+    print(hetero_graph_list)
+    dgl.save_graphs(os.path.join('../data', 'Aminer', 'Aminer.bin'), hetero_graph_list)  # 保存
+    print('Hetero graph list has been saved')
+    print({'author': author_num, 'paper': paper_num})
+    return ['write'], {'author': author_num, 'paper': paper_num}
 
 
 # 获取 Twitter 数据
@@ -268,6 +352,18 @@ def get_ecomm(snapshots=11):
 def get_yelp(snapshots=11):
     df = load_data('Yelp')
     edge_types, node_types_dict = data_processing_for_yelp(df, snapshots)
+    return edge_types, node_types_dict
+
+# 获取 DBLP 数据
+def get_dblp(snapshots=11):
+    df = load_data('DBLP')
+    edge_types, node_types_dict = data_processing_for_dblp(df, snapshots)
+    return edge_types, node_types_dict
+
+# 获取 Aminer 数据
+def get_aminer(snapshots=11):
+    df = load_data('Aminer')
+    edge_types, node_types_dict = data_processing_for_aminer(df, snapshots)
     return edge_types, node_types_dict
 
 

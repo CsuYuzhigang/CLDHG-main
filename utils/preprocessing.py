@@ -58,10 +58,10 @@ def preprocessing_for_ecomm():
 # Yelp 预处理
 def preprocessing_for_yelp():
     # 处理 label 文件
-    # file_path = os.path.join('./data', 'Yelp', 'Yelp_label.txt')
-    # df = pd.read_csv(file_path, delimiter=' ', header=None)  # 读取数据
-    # df[0] = df[0] - 1  # id 从 0 开始
-    # df.to_csv(file_path, sep=' ', index=False, header=False)  # 保存
+    file_path = os.path.join('./data', 'Yelp', 'Yelp_label.txt')
+    df = pd.read_csv(file_path, delimiter=' ', header=None)  # 读取数据
+    df[0] = df[0] - 1  # id 从 0 开始
+    df.to_csv(file_path, sep=' ', index=False, header=False)  # 保存
 
     # 处理数据文件
     file_path = os.path.join('./data', 'Yelp', 'Yelp.txt')
@@ -70,5 +70,39 @@ def preprocessing_for_yelp():
     df[2] = (df[3] + ' ' + df[4]).apply(lambda x: int(time.mktime(datetime.strptime(x, "%Y-%m-%d %H:%M:%S").timetuple()))) # 时间戳转换为整型
     df[3] = 'buy'
     df.drop(df.columns[4], axis=1, inplace=True)
+    df.to_csv(file_path, sep=' ', index=False, header=False)  # 保存
+
+
+# Aminer 预处理
+def preprocessing_for_aminer():
+    # 处理数据文件
+    file_path = os.path.join('./data', 'Aminer', 'Aminer.txt')
+    df = pd.read_csv(file_path, delimiter=' ', header=None)  # 读取数据
+    # 处理节点序号, 使之连续
+    author_map = {}  # 作者序号映射 map
+    paper_map = {}  # 论文序号映射 map
+    author_num = 0  # 作者初始序号
+    paper_num = 0  # 论文初始序号
+    for index, row in df.iterrows():
+        if row[0] not in author_map:
+            author_map[row[0]] = author_num
+            author_num += 1
+    for index, row in df.iterrows():
+        if row[1] not in paper_map:
+            paper_map[row[1]] = author_num + paper_num
+            paper_num += 1
+    df[0] = df[0].map(author_map)
+    df[1] = df[1].map(paper_map)
+    df[3] = 'write'
+    df.to_csv(file_path, sep=' ', index=False, header=False)  # 保存
+
+
+    # 处理 label 文件
+    file_path = os.path.join('./data', 'Aminer', 'Aminer_label.txt')
+    df = pd.read_csv(file_path, delimiter=' ', header=None)  # 读取数据
+    # 处理节点序号
+    df[0].map(author_map)
+    df.dropna(inplace=True) # 删除空行
+    df.sort_values(by=[0], inplace=True)  # 排序
     df.to_csv(file_path, sep=' ', index=False, header=False)  # 保存
 
